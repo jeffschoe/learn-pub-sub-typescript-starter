@@ -10,7 +10,7 @@
     "rabbit:logs": "./src/scripts/rabbit.sh logs"
   },
   "dependencies": {
-    "amqplib": "^0.10.8"
+    "amqplib": "^0.10.9"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.7",
