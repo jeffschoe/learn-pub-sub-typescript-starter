@@ -1,4 +1,7 @@
 import amqp from "amqplib";
+import { publishJSON } from "../internal/pubsub/publish.js";
+import { ExchangePerilDirect, PauseKey } from "../internal/routing/routing.js";
+import type { PlayingState } from "../internal/gamelogic/gamestate.js";
 
 async function main() {
   console.log("Starting Peril server...");
@@ -18,6 +21,22 @@ async function main() {
       }
     }),
   );
+
+  const publishCh = await conn.createConfirmChannel();
+
+  try {
+    await publishJSON(
+      publishCh, 
+      ExchangePerilDirect, 
+      PauseKey, 
+      {isPaused: true} satisfies PlayingState
+    )
+  } catch (err) {
+    console.error("Error publishing message:", err);
+  }
+  
+
+
 
 }
 
