@@ -27,7 +27,7 @@ async function main() {
   const publishCh = await conn.createConfirmChannel();
 
   const queueName = GameLogSlug;
-  const queueKey = `${GameLogSlug}}.*`;
+  const queueKey = `${GameLogSlug}.*`;
 
   await declareAndBind(
     conn,
