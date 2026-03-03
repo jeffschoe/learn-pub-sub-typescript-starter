@@ -62,7 +62,6 @@ async function main() {
       case "quit":
         console.log("exiting... Goodbye!");
         process.exit(0);
-        break;
       default:
         console.log("Unknown command, please try again");
     }
