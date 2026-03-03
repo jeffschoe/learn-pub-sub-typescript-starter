@@ -1,8 +1,9 @@
 import amqp from "amqplib";
 import { publishJSON } from "../internal/pubsub/publish.js";
-import { ExchangePerilDirect, PauseKey } from "../internal/routing/routing.js";
+import { ExchangePerilDirect, ExchangePerilTopic, GameLogSlug, PauseKey } from "../internal/routing/routing.js";
 import type { PlayingState } from "../internal/gamelogic/gamestate.js";
 import { getInput, printServerHelp } from "../internal/gamelogic/gamelogic.js";
+import { declareAndBind, SimpleQueueType } from "../internal/pubsub/consume.js";
 
 async function main() {
   console.log("Starting Peril server...");
@@ -24,6 +25,17 @@ async function main() {
   );
 
   const publishCh = await conn.createConfirmChannel();
+
+  const queueName = GameLogSlug;
+  const queueKey = `${GameLogSlug}}.*`;
+
+  await declareAndBind(
+    conn,
+    ExchangePerilTopic,
+    queueName,
+    queueKey,
+    SimpleQueueType.Durable
+  )
 
   printServerHelp();
 
