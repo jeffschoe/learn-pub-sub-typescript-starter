@@ -1,4 +1,4 @@
-import amqp, { type Channel } from "amqplib";
+import amqp, { type Channel, type ChannelModel } from "amqplib";
 
 
 export enum SimpleQueueType {
@@ -29,5 +29,43 @@ export async function declareAndBind(
   } catch (err) {
     throw new Error("failed to create channel/queue", { cause: err as Error })
   }
+};
+
+export async function subscribeJSON<T>(
+  conn: ChannelModel,
+  exchange: string,
+  queueName: string,
+  key: string,
+  queueType: SimpleQueueType,
+  handler: (data: T) => void,
+): Promise<void> {
+  const [ch, queue] = await declareAndBind(
+    conn,
+    exchange,
+    queueName,
+    key,
+    queueType
+  ); //make sure queue exists and is bound to exchange
+
+  await ch.consume(queue.queue, (msg: amqp.ConsumeMessage | null) => {
+    if (!msg) return;
+
+    let data: T;
+    try {
+      data = JSON.parse(msg.content.toString());
+    } catch (err) {
+      console.error("Could not unmarshal message:", err);
+      return;
+    }
+    
+    handler(data); // the handler is what actually DOES something with the msg
+    ch.ack(msg);
+    /**RabbitMQ doesn't automatically remove a message from the queue 
+     * when it's delivered. It waits for an acknowledgement (ack) from 
+     * the consumer, confirming the message was received and processed 
+     * successfully. Until you ack it, RabbitMQ holds onto the message 
+     * in case the consumer crashes and it needs to be redelivered. */
+  });
+
 };
 
