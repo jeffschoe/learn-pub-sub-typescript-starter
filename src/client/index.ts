@@ -69,7 +69,7 @@ async function main() {
       case "move":
         try {
           const move = commandMove(gs, words);
-          console.log("move successful")
+          //console.log("move successful")
           try {
             await publishJSON(
               publishCh, 
@@ -77,7 +77,7 @@ async function main() {
               `${ArmyMovesPrefix}.${userName}`, 
               move
             )
-            console.log("move published successfully")
+            //console.log("move published successfully")
           } catch (err) {
             console.error("Error publishing message:", err);
           }
