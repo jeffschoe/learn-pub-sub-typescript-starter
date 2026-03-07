@@ -29,7 +29,7 @@ export function publishJSON<T>(
 
 };
 
-function publishMsgPack<T>(
+export function publishMsgPack<T>(
   ch: ConfirmChannel,
   exchange: string,
   routingKey: string,
