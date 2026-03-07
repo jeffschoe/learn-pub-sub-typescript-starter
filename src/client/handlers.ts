@@ -42,12 +42,12 @@ export function handlerMove(
               ExchangePerilTopic, 
               `${WarRecognitionsPrefix}.${gs.getUsername()}`,
               rw,
-            )
+            );
+            return AckType.Ack;
           } catch (err) {
             console.error("Error publishing war recognition:", err);
-          } finally  {
             return AckType.NackRequeue;
-          }
+          } 
         default:
           return AckType.NackDiscard;
       }
