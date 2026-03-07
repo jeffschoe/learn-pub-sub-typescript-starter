@@ -46,7 +46,7 @@ export async function subscribeJSON<T>(
   queueName: string,
   key: string,
   queueType: SimpleQueueType,
-  handler: (data: T) => AckType,
+  handler: (data: T) => Promise<AckType> | AckType
 ): Promise<void> {
   const [ch, queue] = await declareAndBind(
     conn,
@@ -56,7 +56,7 @@ export async function subscribeJSON<T>(
     queueType
   ); //make sure queue exists and is bound to exchange
 
-  await ch.consume(queue.queue, (msg: amqp.ConsumeMessage | null) => {
+  await ch.consume(queue.queue, async (msg: amqp.ConsumeMessage | null) => {
     if (!msg) return;
 
     let data: T;
@@ -64,11 +64,13 @@ export async function subscribeJSON<T>(
       data = JSON.parse(msg.content.toString());
     } catch (err) {
       console.error("Could not unmarshal message:", err);
+      ch.nack(msg, false, false);
+      console.log('NackDiscard');
       return;
     }
     
     try {
-      const result = handler(data); // the handler is what actually DOES something with the msg
+      const result = await handler(data); // the handler is what actually DOES something with the msg
       switch (result) {
         case AckType.Ack:
           ch.ack(msg);
@@ -98,6 +100,5 @@ export async function subscribeJSON<T>(
      * successfully. Until you ack it, RabbitMQ holds onto the message 
      * in case the consumer crashes and it needs to be redelivered. */
   });
-
 };
 

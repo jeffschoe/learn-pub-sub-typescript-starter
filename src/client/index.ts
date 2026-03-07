@@ -1,12 +1,12 @@
 import amqp from "amqplib";
 import { clientWelcome, commandStatus, getInput, printClientHelp, printQuit } from "../internal/gamelogic/gamelogic.js";
 import { SimpleQueueType, subscribeJSON } from "../internal/pubsub/consume.js";
-import { ArmyMovesPrefix, ExchangePerilDirect, ExchangePerilTopic, PauseKey } from "../internal/routing/routing.js";
+import { ArmyMovesPrefix, ExchangePerilDirect, ExchangePerilTopic, PauseKey, WarRecognitionsPrefix } from "../internal/routing/routing.js";
 import { GameState } from "../internal/gamelogic/gamestate.js";
 import { commandSpawn } from "../internal/gamelogic/spawn.js";
 import { commandMove } from "../internal/gamelogic/move.js";
 
-import { handlerMove, handlerPause } from "./handlers.js";
+import { handlerMove, handlerPause, handlerWar } from "./handlers.js";
 import { publishJSON } from "../internal/pubsub/publish.js";
 
 
@@ -30,10 +30,10 @@ async function main() {
     }),
   );
 
+  const publishCh = await conn.createConfirmChannel();
   const userName = await clientWelcome(); //promt user for user name
   const gs = new GameState(userName);
-  const publishCh = await conn.createConfirmChannel();
-
+  
 
   await subscribeJSON(
     conn,
@@ -50,8 +50,17 @@ async function main() {
     `${ArmyMovesPrefix}.${userName}`,
     `${ArmyMovesPrefix}.*`, //wildcard key
     SimpleQueueType.Transient,
-    handlerMove(gs),
+    handlerMove(gs, publishCh),
   );
+
+  await subscribeJSON(
+    conn,
+    ExchangePerilTopic,
+    WarRecognitionsPrefix,
+    `${WarRecognitionsPrefix}.*`,
+    SimpleQueueType.Durable,
+    handlerWar(gs)
+  )
 
   while(true) {
     const words = await getInput();
@@ -69,7 +78,6 @@ async function main() {
       case "move":
         try {
           const move = commandMove(gs, words);
-          //console.log("move successful")
           try {
             await publishJSON(
               publishCh, 
@@ -77,7 +85,6 @@ async function main() {
               `${ArmyMovesPrefix}.${userName}`, 
               move
             )
-            //console.log("move published successfully")
           } catch (err) {
             console.error("Error publishing message:", err);
           }
