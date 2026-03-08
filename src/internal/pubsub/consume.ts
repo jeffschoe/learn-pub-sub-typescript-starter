@@ -1,4 +1,5 @@
 import amqp, { type Channel, type ChannelModel } from "amqplib";
+import { decode } from "@msgpack/msgpack"
 
 
 export enum AckType {
@@ -40,19 +41,20 @@ export async function declareAndBind(
   }
 };
 
-export async function subscribeJSON<T>(
+export async function subscribe<T>(
   conn: ChannelModel,
   exchange: string,
   queueName: string,
-  key: string,
+  routingKey: string,
   queueType: SimpleQueueType,
-  handler: (data: T) => Promise<AckType> | AckType
+  handler: (data: T) => Promise<AckType> | AckType,
+  unmarshaller: (data: Buffer) => T,
 ): Promise<void> {
   const [ch, queue] = await declareAndBind(
     conn,
     exchange,
     queueName,
-    key,
+    routingKey,
     queueType
   ); //make sure queue exists and is bound to exchange
 
@@ -61,11 +63,10 @@ export async function subscribeJSON<T>(
 
     let data: T;
     try {
-      data = JSON.parse(msg.content.toString());
+      data = unmarshaller(msg.content);
     } catch (err) {
       console.error("Could not unmarshal message:", err);
       ch.nack(msg, false, false);
-      console.log('NackDiscard');
       return;
     }
     
@@ -84,18 +85,50 @@ export async function subscribeJSON<T>(
         default:
           const unreachable: never = result;
           console.error("Unexpected ack type:", unreachable);
-          return;
       }
     } catch (err) {
-      console.error("Error handling message:", err);
+      console.error("Error in handler:", err);
       ch.nack(msg, false, false);
-      return;
     }
-    /**RabbitMQ doesn't automatically remove a message from the queue 
-     * when it's delivered. It waits for an acknowledgement (ack) from 
-     * the consumer, confirming the message was received and processed 
-     * successfully. Until you ack it, RabbitMQ holds onto the message 
-     * in case the consumer crashes and it needs to be redelivered. */
-  });
+  },
+  { noAck: false }
+  );
 };
 
+export async function subscribeJSON<T>(
+  conn: ChannelModel,
+  exchange: string,
+  queueName: string,
+  key: string,
+  queueType: SimpleQueueType,
+  handler: (data: T) => Promise<AckType> | AckType
+): Promise<void> {
+  return subscribe(
+    conn,
+    exchange,
+    queueName,
+    key,
+    queueType,
+    handler,
+    (data: Buffer) => JSON.parse(data.toString())
+  )
+};
+
+export async function subscribeMsgPack<T>(
+  conn: ChannelModel,
+  exchange: string,
+  queueName: string,
+  key: string,
+  queueType: SimpleQueueType,
+  handler: (data: T) => Promise<AckType> | AckType
+): Promise<void> {
+  return subscribe(
+    conn,
+    exchange,
+    queueName,
+    key,
+    queueType,
+    handler,
+    (data: Buffer) => decode(data) as T // 'as T' because decode returns unknown by default
+  )
+}
