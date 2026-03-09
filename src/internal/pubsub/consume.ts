@@ -58,7 +58,7 @@ export async function subscribe<T>(
     queueType
   ); //make sure queue exists and is bound to exchange
 
-  await ch.prefetch(1);
+  await ch.prefetch(10);
 
   await ch.consume(queue.queue, async (msg: amqp.ConsumeMessage | null) => {
     if (!msg) return;
